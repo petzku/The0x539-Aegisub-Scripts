@@ -787,9 +787,30 @@ eval_inline_expr = (tenv) -> (expr) ->
 	val = func!
 	if val == nil then '' else tostring(val)
 
--- Expand dollar-variables and inline Lua expressions within a template or mixin.
+-- Evaluate a custom shorthand tag.
+eval_custom_tag = (tenv) -> (tag) ->
+	-- \fscNN 		-> \fscxNN \fscyNN
+	if tag\sub(1, 4) == '\\fsc'
+		tag\gsub '\\fsc([-%d.]+)', '\\fscx%1\\fscy%1'
+	-- \13cBBRRGG 	-> \1cBBRRGG \3cBBRRGG
+	elseif tag\match '^\\([1-4][1-4]+)[ac]'
+		fields, base, color, rest = tag\match '^\\([1-4]+)([ac])([&H0-9A-Fa-f]+)(.*)$'
+		if fields
+			s = ""
+			for i = 1, #fields
+				f = fields\sub(i,i)
+				s ..= '\\' .. f .. base .. color
+			s .. rest
+		else
+			tag
+
+	-- was just a normal tag, ignore
+	else
+		tag
+
+-- Expand dollar-variables, inline Lua expressions, and custom-defined tags within a template or mixin.
 eval_body = (text, tenv) ->
-	text\gsub('%$[a-z_]+', eval_inline_var tenv)\gsub('!.-!', eval_inline_expr tenv)
+	text\gsub('%$[a-z_]+', eval_inline_var tenv)\gsub('!.-!', eval_inline_expr tenv)\gsub('\\[^\\]+', eval_custom_tag tenv)
 
 -- A collection of variables to iterate over in a particular order.
 class loopctx
